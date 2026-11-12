@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SDR-RX 7</title>
+<style>
+  :root{
+    --bg:#000b20; --grn:#4dff9e; --grn-dim:#2a7a52;
+    --amber:#ffb347; --txt:#8fd8b4; --line:#133024;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:radial-gradient(ellipse at 50% -10%,#0a1a30 0%,#000b20 60%);
+    color:var(--txt);
+    font-family:'SFMono-Regular','Consolas','Courier New',monospace;
+    display:flex;overflow:hidden;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  #app{display:flex;flex-direction:column;height:100%;width:100%;padding:14px;gap:12px}
+
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 4px}
+  .brand{font-size:13px;letter-spacing:2px;color:var(--grn-dim);text-transform:uppercase;white-space:nowrap}
+  .brand .dot{display:inline-block;width:8px;height:8px;border-radius:50%;
+    background:var(--grn);box-shadow:0 0 8px var(--grn);margin-right:8px;vertical-align:middle;
+    animation:pulse 2s infinite}
+  @keyframes pulse{50%{opacity:.25}}
+  .brand .sub{color:#1d4a37;letter-spacing:1px}
+  .head-right{display:flex;align-items:center;gap:14px}
+  .freq{font-size:34px;color:var(--grn);letter-spacing:1px;font-variant-numeric:tabular-nums;
+    text-shadow:0 0 16px rgba(77,255,158,.5);white-space:nowrap;transition:color .3s}
+  .freq .unit{font-size:13px;color:var(--grn-dim);margin-left:6px;letter-spacing:2px}
+  .freq.locked{color:var(--amber);text-shadow:0 0 18px rgba(255,179,71,.6)}
+  .mute{background:none;border:1px solid var(--line);color:var(--txt);border-radius:4px;
+    padding:4px 8px;font-size:14px;cursor:pointer;line-height:1}
+  .mute.off{opacity:.4}
+
+  main{flex:1;display:flex;gap:12px;min-height:0}
+  .waterfall-wrap{flex:1;position:relative;border:1px solid var(--line);border-radius:6px;
+    overflow:hidden;background:#000b20;min-width:0}
+  .waterfall-wrap::after{content:'';position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,.25) 0 1px,transparent 1px 2px);
+    mix-blend-mode:multiply; z-index: 10;}
+  #waterfall{display:block;width:100%;height:100%;cursor:ew-resize;touch-action:none}
+
+  .panel{width:210px;display:flex;flex-direction:column;gap:12px;overflow-y:auto;padding-right:4px}
+  .label{font-size:10px;letter-spacing:2px;color:var(--grn-dim);text-transform:uppercase;
+    margin-bottom:5px;display:flex;align-items:center;gap:8px}
+  .meter{height:14px;border:1px solid var(--line);border-radius:3px;overflow:hidden;background:#020504}
+  .meter-fill{height:100%;width:0%;background:linear-gradient(90deg,#1e8f5c,#4dff9e,#ffb347);
+    transition:width .06s linear}
+  .meter-val{font-size:12px;color:var(--grn);margin-top:4px}
+  .status{padding:9px;border:1px solid var(--line);border-radius:4px;text-align:center;
+    font-size:11px;letter-spacing:1px;transition:.3s;min-height:36px;
+    display:flex;align-items:center;justify-content:center}
+  .status.locked{color:var(--amber);border-color:var(--amber);
+    box-shadow:0 0 12px rgba(255,179,71,.35)}
+  .morse{font-size:16px;letter-spacing:2px;color:var(--grn);min-height:52px;
+    word-break:break-all;line-height:1.5;text-shadow:0 0 10px rgba(77,255,158,.45);}
+  .lamp{width:11px;height:11px;border-radius:50%;background:#0f2418;border:1px solid #1d4a37;
+    transition:all .05s;display:inline-block}
+  .lamp.on{background:var(--amber);box-shadow:0 0 14px var(--amber);border-color:var(--amber)}
+  
+  .log-container {
+    background: #020504;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    padding: 6px 10px;
+    font-size: 14px;
+    color: var(--grn);
+    margin-top: auto;
+    cursor: pointer;
+  }
+  .log-container summary {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: var(--grn-dim);
+    text-transform: uppercase;
+    outline: none;
+  }
+  .log-content {
+    margin-top: 8px;
+    max-height: 100px;
+    overflow-y: auto;
+    word-break: break-all;
+    font-size: 16px;
+    letter-spacing: 2px;
+    text-shadow: 0 0 10px rgba(77,255,158,.45);
+    cursor: text;
+  }
+  
+  .action-btns {
+    display: flex;
+    gap: 6px;
+  }
+  .action-btn {
+    background: none;
+    border: 1px solid var(--line);
+    color: var(--txt);
+    border-radius: 3px;
+    font-size: 14px;
+    padding: 2px 6px;
+    cursor: pointer;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.2s;
+  }
+  .action-btn:hover { color: var(--amber); border-color: var(--amber); }
+  .action-btn.success { color: var(--grn); border-color: var(--grn); }
+  
+  .hint{font-size:11px;color:#1d4a37;line-height:1.5;opacity:0;transition:opacity 1.2s;margin-top:4px;}
+  .hint.show{opacity:1}
+  footer{font-size:11px;color:#1d4a37;text-align:center;letter-spacing:1px}
+
+  @media (max-width:760px){
+    #app{padding:10px;gap:8px}
+    main{flex-direction:column}
+    .panel{width:100%;flex-direction:row;flex-wrap:wrap;gap:8px;overflow:visible;padding-right:0}
+    .panel .block{flex:1 1 30%}
+    .panel .block:nth-child(3){flex:1 1 100%}
+    .log-container{flex:1 1 100%;margin-top:0}
+    .hint{display:none}
+    .freq{font-size:24px}
+    .brand .sub{display:none}
+    footer{font-size:10px}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand"><span class="dot"></span>SDR-RX&nbsp;7 <span class="sub">// spectrum analyzer</span></div>
+    <div class="head-right">
+      <div class="freq" id="freqBox"><span id="freqValue">88.000</span><span class="unit">МГц</span></div>
+      <button id="muteBtn" class="mute" title="Звук">🔊</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="waterfall-wrap">
+      <canvas id="waterfall"></canvas>
+    </div>
+
+    <aside class="panel">
+      <div class="block">
+        <div class="label">S-МЕТР</div>
+        <div class="meter"><div class="meter-fill" id="meterFill"></div></div>
+        <div class="meter-val"><span id="meterVal">S0</span></div>
+      </div>
+      <div class="block">
+        <div class="label">СТАТУС</div>
+        <div class="status" id="status">ПОИСК СИГНАЛА…</div>
+      </div>
+      <div class="block">
+        <div class="label">ПРИНЯТО <span class="lamp" id="lamp"></span></div>
+        <div class="morse" id="morse"></div>
+      </div>
+      
+      <details class="log-container" id="logDetails">
+        <summary style="display:flex; justify-content:space-between; align-items:center;">
+          <span>ПРИНЯТОЕ СООБЩЕНИЕ</span>
+          <div class="action-btns">
+            <button id="copyLogBtn" class="action-btn" title="Копировать">📋</button>
+            <button id="clearLogBtn" class="action-btn" title="Стереть">🗑️</button>
+          </div>
+        </summary>
+        <div class="log-content" id="logContent">
+          <span id="logText"></span>
+        </div>
+      </details>
+
+      <div class="hint" id="hint">Подсказка: несущая спрятана в шумах. Ведите настройку медленно — S-метр оживёт.</div>
+    </aside>
+  </main>
+
+  <footer>← → или свайп по водопаду — настройка · Shift — грубо · колесо мыши</footer>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* ================= НАСТРОЙКИ — МЕНЯЙТЕ ЗДЕСЬ ================= */
+const CONFIG = {
+  targetFreq:    103.7,      // МГц — частота скрытой несущей (морзянка)
+  rickrollFreq:  96.1,       // МГц — частота пасхалки (Рикролл)
+  freqMin:       88.0,       // нижняя граница диапазона
+  freqMax:       108.0,      // верхняя граница
+  lockPeak:      0.15,       // «узость» захвата (МГц)
+  meterPeak:     0.80,       // «широта» S-метра (МГц)
+  threshold:     0.85,       // порог, при котором сигнал считается "чистым"
+  morseMessage:  'ОТПУСК 01122026',  // ЧТО транслируется в эфире
+  wpm:           12,         // скорость морзянки
+  hintDelay:     45000,      // мс до показа подсказки
+  dragSensitivity: 0.008     // Чувствительность ручки (МГц на пиксель)
+};
+
+const spurs = [
+  { freq: 88.3,  width: 0.05, strength: 0.7, driftSpeed: 0.5,  driftAmount: 0.02 },
+  { freq: 89.5,  width: 0.50, strength: 0.4, driftSpeed: 0.1,  driftAmount: 0.05 },
+  { freq: 91.2,  width: 0.10, strength: 0.6, driftSpeed: 0.3,  driftAmount: 0.03 },
+  { freq: 93.8,  width: 0.30, strength: 0.5, driftSpeed: 0.8,  driftAmount: 0.01 },
+  { freq: 96.1,  width: 0.08, strength: 0.9, driftSpeed: 0.2,  driftAmount: 0.02 }, // Пасхалка
+  { freq: 99.4,  width: 0.60, strength: 0.3, driftSpeed: 0.4,  driftAmount: 0.02 },
+  { freq: 102.0, width: 0.15, strength: 0.7, driftSpeed: 0.6,  driftAmount: 0.03 },
+  { freq: 106.5, width: 0.40, strength: 0.5, driftSpeed: 0.15, driftAmount: 0.05 }
+];
+
+const RICK_STR = 'b=210,o=3,d=4:8d5,8e5,8g5,8d5,b5,8p,b5,8p,2a5,p,8d5,8e5,8g5,8d5,a5,8p,a5,8p,g5,8g5,8f#5,e5,8d5,8e5,8g5,8e5,2g5,a5,f#5,8f#5,8e5,d5,8d5,8p,8d5,8p,a5,8a5,8p,2g5';
+/* ============================================================= */
+
+const MORSE = {
+  'А':'.-',   'Б':'-...', 'В':'.--',  'Г':'--.',  'Д':'-..',
+  'Е':'.',    'Ё':'.',    'Ж':'...-', 'З':'--..', 'И':'..',
+  'Й':'.---', 'К':'-.-',  'Л':'.-..', 'М':'--',   'Н':'-.',
+  'О':'---',  'П':'.--.', 'Р':'.-.',  'С':'...',  'Т':'-',
+  'У':'..-',  'Ф':'..-.', 'Х':'....', 'Ц':'-.-.', 'Ч':'---.',
+  'Ш':'----', 'Щ':'--.-', 'Ъ':'--.--','Ы':'-.--', 'Ь':'-..-',
+  'Э':'..-..','Ю':'..--', 'Я':'.-.-',
+  '0':'-----','1':'.----','2':'..---','3':'...--','4':'....-','5':'.....',
+  '6':'-....','7':'--...','8':'---..','9':'----.'
+};
+
+const canvas   = document.getElementById('waterfall');
+const ctx      = canvas.getContext('2d');
+const freqBox  = document.getElementById('freqBox');
+const freqVal  = document.getElementById('freqValue');
+const meterFill= document.getElementById('meterFill');
+const meterVal = document.getElementById('meterVal');
+const statusEl = document.getElementById('status');
+const morseEl  = document.getElementById('morse');
+const lampEl   = document.getElementById('lamp');
+const hintEl   = document.getElementById('hint');
+const muteBtn  = document.getElementById('muteBtn');
+const logText  = document.getElementById('logText');
+const logContent = document.getElementById('logContent');
+const clearLogBtn = document.getElementById('clearLogBtn');
+const copyLogBtn  = document.getElementById('copyLogBtn');
+
+let W = 1, H = 1;
+let spectrumHeight = 100;
+let wfHeight = 1;
+
+let wfCanvas = document.createElement('canvas');
+let wfCtx = wfCanvas.getContext('2d', { willReadFrequently: true });
+let wfImageData = null;
+let currentSpectrum = new Float32Array(1);
+
+let tune = CONFIG.freqMin;
+let muted = false;
+let simTime = 0;
+
+let actx = null, noiseGain = null, morseGain = null, rickGain = null;
+let nextMessageTime = 0;
+let morseEvents = []; 
+let nextRickrollTime = 0;
+let rickrollEvents = [];
+
+function parseTrackerMusic(str) {
+  const parts = str.split(':');
+  if (parts.length !== 2) return [];
+  const header = parts[0].split(',');
+  let bpm = 120, defaultOctave = 4, defaultDur = 4;
+  
+  header.forEach(h => {
+    if (h.startsWith('b=')) bpm = parseInt(h.slice(2), 10);
+    if (h.startsWith('o=')) defaultOctave = parseInt(h.slice(2), 10);
+    if (h.startsWith('d=')) defaultDur = parseInt(h.slice(2), 10);
+  });
+
+  const noteMap = { C:0, 'C#':1, D:2, 'D#':3, E:4, F:5, 'F#':6, G:7, 'G#':8, A:9, 'A#':10, B:11 };
+  const notes = parts[1].split(',');
+  const result = [];
+  const beatTime = 60 / bpm;
+  
+  for (let n of notes) {
+    n = n.trim().toLowerCase();
+    if (!n) continue;
+    
+    let dur = defaultDur;
+    let octave = defaultOctave;
+    let isPause = false;
+    let noteName = '';
+    
+    const durMatch = n.match(/^(\d+)/);
+    if (durMatch) {
+      dur = parseInt(durMatch[1], 10);
+      n = n.substring(durMatch[0].length);
+    }
+    
+    if (n === 'p' || n === '') {
+      isPause = true;
+    } else {
+      const octMatch = n.match(/(\d+)$/);
+      if (octMatch) {
+        octave = parseInt(octMatch[1], 10);
+        n = n.substring(0, n.length - octMatch[0].length);
+      }
+      noteName = n;
+    }
+    
+    const durationSec = beatTime * (4 / dur);
+    
+    if (isPause) {
+      result.push({ f: 0, d: durationSec });
+    } else {
+      let offset = noteMap[noteName.toUpperCase()];
+      if (offset !== undefined) {
+        const midi = (octave + 1) * 12 + offset;
+        const freq = 440 * Math.pow(2, (midi - 69) / 12);
+        result.push({ f: freq, d: durationSec });
+      }
+    }
+  }
+  return result;
+}
+
+const parsedRickNotes = parseTrackerMusic(RICK_STR);
+
+function initAudio(){
+  if (actx) return;
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    
+    const size = actx.sampleRate * 2;
+    const nbuf = actx.createBuffer(1, size, actx.sampleRate);
+    const d = nbuf.getChannelData(0);
+    for (let i = 0; i < size; i++) d[i] = Math.random() * 2 - 1;
+    const src = actx.createBufferSource();
+    src.buffer = nbuf; src.loop = true;
+    
+    const noiseFilter = actx.createBiquadFilter();
+    noiseFilter.type = 'bandpass'; 
+    noiseFilter.frequency.value = 1200; 
+    noiseFilter.Q.value = 0.5;
+    
+    noiseGain = actx.createGain(); noiseGain.gain.value = 0;
+    src.connect(noiseFilter).connect(noiseGain).connect(actx.destination);
+    src.start();
+
+    morseGain = actx.createGain(); morseGain.gain.value = 0;
+    morseGain.connect(actx.destination);
+
+    rickGain = actx.createGain(); rickGain.gain.value = 0;
+    rickGain.connect(actx.destination);
+  } catch(e){ actx = null; }
+}
+
+function playBeep(at, dur) {
+  if (!actx || !morseGain) return;
+  const osc = actx.createOscillator();
+  const g = actx.createGain();
+  osc.type = 'sine';
+  osc.frequency.value = 620;
+  osc.connect(g).connect(morseGain);
+  
+  g.gain.setValueAtTime(0.0001, at);
+  g.gain.exponentialRampToValueAtTime(0.2, at + 0.01);
+  g.gain.setValueAtTime(0.2, at + Math.max(0.02, dur - 0.01));
+  g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+  
+  osc.start(at);
+  osc.stop(at + dur + 0.05);
+}
+
+function playRickNote(at, dur, freq) {
+  if (!actx || !rickGain) return;
+  const osc = actx.createOscillator();
+  const g = actx.createGain();
+  osc.type = 'triangle';
+  osc.frequency.value = freq;
+  osc.connect(g).connect(rickGain);
+  
+  g.gain.setValueAtTime(0, at);
+  g.gain.linearRampToValueAtTime(0.15, at + 0.02);
+  g.gain.setValueAtTime(0.15, at + dur - 0.02);
+  g.gain.linearRampToValueAtTime(0, at + dur);
+  
+  osc.start(at);
+  osc.stop(at + dur + 0.05);
+}
+
+function scheduleNextMessage() {
+  if (!actx) return;
+  const unit = 1.2 / CONFIG.wpm;
+  let t = nextMessageTime;
+  if (t < actx.currentTime) t = actx.currentTime + 0.1;
+  
+  const text = CONFIG.morseMessage.toUpperCase() + ' ';
+
+  for (const ch of text) {
+    if (ch === ' ') { t += 4 * unit; continue; }
+    const code = MORSE[ch];
+    if (!code) continue;
+    
+    let charStart = t;
+    for (let j = 0; j < code.length; j++) {
+      const s = code[j];
+      const dur = (s === '.' ? 1 : 3) * unit;
+      playBeep(t, dur);
+      t += dur;
+      if (j < code.length - 1) t += unit;
+    }
+    morseEvents.push({ symbols: code, startTime: charStart, endTime: t, logged: false });
+    t += 3 * unit;
+  }
+  nextMessageTime = t + 2.0;
+}
+
+function scheduleRickroll() {
+  if (!actx) return;
+  let t = nextRickrollTime;
+  if (t < actx.currentTime) t = actx.currentTime + 0.1;
+  
+  for (let note of parsedRickNotes) {
+    if (note.f > 0) {
+      playRickNote(t, note.d, note.f);
+    }
+    rickrollEvents.push({ startTime: t, endTime: t + note.d });
+    t += note.d;
+  }
+  nextRickrollTime = t + 3.0;
+}
+
+function maintainTransmission() {
+  if (!actx) return;
+  while (nextMessageTime < actx.currentTime + 2.0) scheduleNextMessage();
+  while (nextRickrollTime < actx.currentTime + 2.0) scheduleRickroll();
+}
+
+function clamp(v, a, b){ return v < a ? a : v > b ? b : v; }
+
+function signalStrength(f, target, width){
+  const d = (f - target) / width;
+  return Math.exp(-0.5 * d * d);
+}
+
+function getColor(v) {
+  v = Math.max(0, Math.min(1, v));
+  const colors = [[0,0,20],[0,0,150],[0,200,200],[0,255,0],[255,255,0],[255,0,0]];
+  const step = v * (colors.length - 1);
+  const i = Math.floor(step);
+  const t = step - i;
+  if (i >= colors.length - 1) return colors[colors.length - 1];
+  const c1 = colors[i], c2 = colors[i+1];
+  return [
+    c1[0] + (c2[0] - c1[0]) * t,
+    c1[1] + (c2[1] - c1[1]) * t,
+    c1[2] + (c2[2] - c1[2]) * t
+  ];
+}
+
+function resize(){
+  const r = canvas.getBoundingClientRect();
+  W = Math.max(1, Math.floor(r.width));
+  H = Math.max(1, Math.floor(r.height));
+  canvas.width = W; canvas.height = H;
+
+  spectrumHeight = Math.floor(H * 0.25);
+  wfHeight = H - spectrumHeight;
+
+  const oldWf = document.createElement('canvas');
+  oldWf.width = wfCanvas.width; oldWf.height = wfCanvas.height;
+  oldWf.getContext('2d').drawImage(wfCanvas, 0, 0);
+
+  wfCanvas.width = W; wfCanvas.height = wfHeight;
+  wfCtx.fillStyle = '#000b20'; wfCtx.fillRect(0, 0, W, wfHeight);
+  if (oldWf.width > 1 && oldWf.height > 1) {
+    wfCtx.drawImage(oldWf, 0, 0, oldWf.width, oldWf.height, 0, 0, W, wfHeight);
+  }
+  
+  wfImageData = wfCtx.createImageData(W, 1);
+  currentSpectrum = new Float32Array(W);
+  for (let x = 0; x < W; x++) currentSpectrum[x] = 0.05;
+}
+
+function updateSpectrum() {
+  simTime += 0.033;
+  for (let x = 0; x < W; x++) {
+    const f = CONFIG.freqMin + (x / (W - 1)) * (CONFIG.freqMax - CONFIG.freqMin);
+    let level = 0.03 + Math.random() * 0.06;
+    for (const s of spurs) {
+      const fDrift = s.freq + Math.sin(simTime * s.driftSpeed) * s.driftAmount;
+      const d = (f - fDrift) / s.width;
+      level += Math.exp(-0.5 * d * d) * s.strength;
+    }
+    const dMain = (f - CONFIG.targetFreq) / CONFIG.lockPeak;
+    level += Math.exp(-0.5 * dMain * dMain) * 1.2;
+    level = level * (0.85 + Math.random() * 0.3);
+    currentSpectrum[x] = Math.min(1, level);
+  }
+}
+
+function drawWaterfallRow() {
+  if (wfHeight < 2) return;
+  wfCtx.drawImage(wfCanvas, 0, 0, W, wfHeight - 1, 0, 1, W, wfHeight - 1);
+  const d = wfImageData.data;
+  for (let x = 0; x < W; x++) {
+    const v = currentSpectrum[x];
+    const [r, g, b] = getColor(v);
+    const i = x * 4;
+    d[i] = r; d[i+1] = g; d[i+2] = b; d[i+3] = 255;
+  }
+  wfCtx.putImageData(wfImageData, 0, 0);
+}
+
+function freqToX(f){
+  return ((f - CONFIG.freqMin) / (CONFIG.freqMax - CONFIG.freqMin)) * (W - 1);
+}
+
+function renderScene(){
+  ctx.clearRect(0, 0, W, H);
+  ctx.drawImage(wfCanvas, 0, spectrumHeight);
+  
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0, 0, W, spectrumHeight);
+  
+  ctx.beginPath();
+  ctx.strokeStyle = '#ccc';
+  ctx.lineWidth = 1.2;
+  for (let x = 0; x < W; x++) {
+    const y = spectrumHeight - currentSpectrum[x] * spectrumHeight * 0.9;
+    if (x === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.stroke();
+  
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(143,216,180,0.35)';
+  ctx.fillRect(0, spectrumHeight - 1, W, 1);
+  
+  for (let f = 88; f <= 108; f += 1) {
+    const x = freqToX(f);
+    ctx.fillStyle = 'rgba(143,216,180,0.5)';
+    ctx.fillRect(x, spectrumHeight - 5, 1, 5);
+    if (f % 2 === 0) {
+      ctx.fillStyle = 'rgba(143,216,180,0.8)';
+      ctx.fillText(String(f), x, spectrumHeight - 8);
+    }
+  }
+
+  const x = freqToX(tune);
+  const sn = Math.max(signalStrength(tune, CONFIG.targetFreq, CONFIG.lockPeak), signalStrength(tune, CONFIG.rickrollFreq, CONFIG.lockPeak));
+  const isClear = sn > CONFIG.threshold;
+
+  ctx.fillStyle = 'rgba(255,179,71,0.15)';
+  ctx.fillRect(x - 8, 0, 16, H);
+  ctx.strokeStyle = isClear ? '#4dff9e' : '#ffb347';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(x + 0.5, 0);
+  ctx.lineTo(x + 0.5, H);
+  ctx.stroke();
+  
+  ctx.fillStyle = isClear ? '#4dff9e' : '#ffb347';
+  ctx.beginPath();
+  ctx.moveTo(x - 5, 0); ctx.lineTo(x + 5, 0); ctx.lineTo(x, 7);
+  ctx.closePath(); ctx.fill();
+}
+
+function updateFreqDisplay(){
+  freqVal.textContent = tune.toFixed(3);
+}
+
+function setStatus(text, lockedStyle){
+  statusEl.textContent = text;
+  statusEl.classList.toggle('locked', !!lockedStyle);
+}
+
+let lastFrame = performance.now();
+let rowAccum = 0;
+
+function updateState(dt){
+  if (!actx) return;
+  maintainTransmission();
+  
+  const sn_morse = signalStrength(tune, CONFIG.targetFreq, CONFIG.lockPeak);
+  const sn_rick = signalStrength(tune, CONFIG.rickrollFreq, CONFIG.lockPeak);
+  const maxSig = Math.max(sn_morse, sn_rick);
+  const sw = signalStrength(tune, CONFIG.targetFreq, CONFIG.meterPeak);
+
+  meterFill.style.width = (sw * 100).toFixed(1) + '%';
+  meterVal.textContent = 'S' + Math.round(sw * 9);
+
+  if (!muted) {
+    const targetNoise = 0.06 * (1 - maxSig * 0.85);
+    const targetMorse = sn_morse * 0.8;
+    const targetRick = sn_rick * 0.6;
+    noiseGain.gain.setTargetAtTime(targetNoise, actx.currentTime, 0.05);
+    morseGain.gain.setTargetAtTime(targetMorse, actx.currentTime, 0.05);
+    rickGain.gain.setTargetAtTime(targetRick, actx.currentTime, 0.05);
+  } else {
+    noiseGain.gain.setTargetAtTime(0, actx.currentTime, 0.05);
+    morseGain.gain.setTargetAtTime(0, actx.currentTime, 0.05);
+    rickGain.gain.setTargetAtTime(0, actx.currentTime, 0.05);
+  }
+
+  const now = actx.currentTime;
+  
+  if (maxSig > CONFIG.threshold) {
+    setStatus('ЗАХВАТ НЕСУЩЕЙ', true);
+    freqBox.classList.add('locked');
+    
+    let isBeeping = false;
+    let liveMorse = '';
+
+    if (sn_morse > CONFIG.threshold) {
+      for (let i = morseEvents.length - 1; i >= 0; i--) {
+          const e = morseEvents[i];
+          if (now >= e.startTime && now < e.startTime + 6.0) {
+              liveMorse = e.symbols + ' ' + liveMorse; 
+          }
+          if (now >= e.startTime && now < e.endTime) isBeeping = true;
+          
+          if (now > e.endTime && !e.logged) {
+              logText.textContent += e.symbols + ' ';
+              e.logged = true;
+              logContent.scrollTop = logContent.scrollHeight;
+          }
+      }
+    }
+
+    if (sn_rick > CONFIG.threshold) {
+      for (let e of rickrollEvents) {
+          if (now >= e.startTime && now < e.endTime) isBeeping = true;
+      }
+      liveMorse = '♪ ♫ ♪ ♫';
+    }
+
+    morseEl.textContent = liveMorse;
+    if (isBeeping) lampEl.classList.add('on');
+    else lampEl.classList.remove('on');
+
+  } else {
+    freqBox.classList.remove('locked');
+    morseEl.textContent = '';
+    lampEl.classList.remove('on');
+    
+    if (sw > 0.5)      setStatus('СЛАБЫЙ СИГНАЛ…', false);
+    else if (sw > 0.15) setStatus('ПОМЕХИ…', false);
+    else                setStatus('ПОИСК СИГНАЛА…', false);
+  }
+
+  morseEvents = morseEvents.filter(e => now < e.endTime + 15.0);
+  rickrollEvents = rickrollEvents.filter(e => now < e.endTime + 5.0);
+}
+
+function loop(now){
+  const dt = Math.min(0.1, (now - lastFrame) / 1000);
+  lastFrame = now;
+
+  updateState(dt);
+
+  rowAccum += dt;
+  if (rowAccum >= 1 / 30){
+    rowAccum = 0;
+    updateSpectrum();
+    drawWaterfallRow();
+  }
+  renderScene();
+  requestAnimationFrame(loop);
+}
+
+function setTune(f){
+  tune = clamp(f, CONFIG.freqMin, CONFIG.freqMax);
+  updateFreqDisplay();
+  initAudio();
+  if (actx && actx.state === 'suspended') actx.resume();
+}
+
+window.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft' || e.key === 'ArrowRight'){
+    e.preventDefault();
+    const step = e.shiftKey ? 1.0 : 0.05;
+    setTune(tune + (e.key === 'ArrowLeft' ? -step : step));
+  }
+});
+
+let isDragging = false;
+let dragStartX = 0;
+let dragStartTune = 0;
+
+canvas.addEventListener('pointerdown', (e) => {
+  isDragging = true;
+  dragStartX = e.clientX;
+  dragStartTune = tune;
+  try { canvas.setPointerCapture(e.pointerId); } catch(_){}
+});
+
+canvas.addEventListener('pointermove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - dragStartX;
+  const newTune = dragStartTune + dx * CONFIG.dragSensitivity;
+  setTune(newTune);
+});
+
+canvas.addEventListener('pointerup',   () => { isDragging = false; });
+canvas.addEventListener('pointercancel', () => { isDragging = false; });
+
+canvas.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  setTune(tune + (e.deltaY > 0 ? 0.05 : -0.05));
+}, { passive: false });
+
+muteBtn.addEventListener('click', () => {
+  muted = !muted;
+  muteBtn.textContent = muted ? '🔇' : '🔊';
+  muteBtn.classList.toggle('off', muted);
+});
+
+// --- Кнопка копирования ---
+copyLogBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation(); // Предотвращаем сворачивание/разворачивание details
+
+  const textToCopy = logText.textContent.trim();
+  if (!textToCopy) return;
+
+  navigator.clipboard.writeText(textToCopy).then(() => {
+    // Визуальный отклик
+    copyLogBtn.textContent = '✅';
+    copyLogBtn.classList.add('success');
+    
+    setTimeout(() => {
+      copyLogBtn.textContent = '📋';
+      copyLogBtn.classList.remove('success');
+    }, 1500);
+  }).catch(err => {
+    console.error('Ошибка копирования: ', err);
+  });
+});
+
+// --- Кнопка очистки ---
+clearLogBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  logText.textContent = '';
+});
+
+window.addEventListener('resize', () => {
+  resize();
+  renderScene();
+});
+
+resize();
+updateFreqDisplay();
+requestAnimationFrame((t) => { lastFrame = t; loop(t); });
+setTimeout(() => hintEl.classList.add('show'), CONFIG.hintDelay);
+
+})();
+</script>
+</body>
+</html>
